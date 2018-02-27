@@ -1,0 +1,17 @@
+{
+    "Greetings": {
+        "StartAt": "A",
+        "A": {
+            "action":"",
+            "message": {
+                "text": [
+                    [
+                        "Hello!",
+                        "How are you there!"
+                    ]
+                ]
+            }
+        }
+    },
+    "Collect": {}
+}
