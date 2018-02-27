@@ -1,77 +1,5 @@
-import { stat } from "fs";
+import storage from 'node-persist'
 
-enum ExceptionEnum {
-    IntentNotFoundException,
-    InvalidActionNameException,
-    UnknownActionException,
-    InvalidStateFormatException,
-    UnknownException
-}
-enum ReservedStateNamesEnum {
-    startAt = "startAt"
-}
-
-enum ActionEnum {
-    sendMessage = 'send-message',
-    confirm = 'confirm',
-    collectInput = "collect-input",
-    sendExternal = "send-external"
-}
-
-
-interface ISendExternalState extends IState {
-    uri: string,
-    method: string
-}
-
-interface ISendMessageState extends IState {
-    field_key?: string,
-    message: IMessage
-}
-
-interface IConfirmationState extends IState {
-    confirm_next: string,
-    reject_next: string,
-    default_next: string,
-    unknown_next?: string,
-}
-
-interface ICollectInputState extends IState {
-    field: string
-}
-
-interface IState {
-    action: ActionEnum,
-    next?: string,
-}
-
-
-interface IOutType<T> {
-    out: T
-}
-interface IMessage {
-    text: string[][],
-    quickreply?: any
-}
-
-interface IIntent {
-    startAt: string,
-    [StateKey: string]:
-    ISendMessageState |
-    IConfirmationState |
-    ICollectInputState |
-    ISendExternalState | string | undefined
-}
-
-interface IConvoMap {
-    [IntentKey: string]: IIntent | undefined;
-}
-
-interface UserState {
-    intent?: string,
-    state?: string,
-    payload?: any
-}
 export class Reader {
     async trySendMessageAsync(state: ISendMessageState) {
         let replaceFieldKey = state.field_key;
@@ -89,6 +17,7 @@ export class Reader {
     }
 
     async trySendExternalAsync(state: ISendExternalState) {
+        if (this.currentState == null) return;
         let data = this.currentState.payload;
         let uri = state.uri;
         let method = state.method;
@@ -115,7 +44,8 @@ export class Reader {
         }
     }
 
-    async tryCollectInputAsync(state: ICollectInputState, input: string) {
+    CollectInput(state: ICollectInputState, input: string) {
+        if (this.currentState == null) return;
         let field = state.field;
         let data = input;
         if (this.currentState.payload == null) this.currentState.payload = {};
@@ -167,6 +97,7 @@ export class Reader {
 
 
     public async tryProcessAsync(input: string) {
+        if (this.currentState == null) return;
         //Try Get Intent
         if (this.currentState.intent == null) {
             let intent = this.tryGetIntent(input);
@@ -195,7 +126,7 @@ export class Reader {
         switch (outStateType.out) {
             case ActionEnum.collectInput:
                 state = <ICollectInputState>state;
-                await this.tryCollectInputAsync(state, input);
+                this.CollectInput(state, input);
                 break;
             case ActionEnum.confirm:
                 state = <IConfirmationState>state;
@@ -214,23 +145,72 @@ export class Reader {
         }
         //Advance to next State
         let nextAction = (<IState>state).next;
+        let wait = (<IState>state).wait;
         if (nextAction != null) {
             this.currentState.state = nextAction;
+            if (wait != true) {
+                await this.tryProcessAsync(input);
+                return;
+            }
         } else {
             this.currentState.state = undefined;
             this.currentState.intent = undefined;
             this.currentState.payload = undefined;
+            this.currentState.waiting = undefined;
         }
         return;
     }
 
+    public async ProcessAsync(input) {
+        try {
+            let sessionKey = this.userIdAppKey[0] + '-' + this.userIdAppKey[1];
+            this.currentState = JSON.parse(this.storage.get(sessionKey));
+            console.log(this.currentState);
+            await this.tryProcessAsync(input);
+            this.storage.set(sessionKey, JSON.stringify(this.currentState))
+        } catch (e) {
+            switch (e) {
+                case ExceptionEnum.IntentNotFoundException:
+                case ExceptionEnum.InvalidActionNameException:
+                case ExceptionEnum.InvalidStateFormatException:
+                case ExceptionEnum.UnknownActionException:
+                case ExceptionEnum.UnknownException:
+                    console.log(e);
+                default:
+                    console.log("Something wierd happend D:");
+            }
+        }
+    }
 
     // Class Properties and constructors 
     private convoMap: IConvoMap;
-
-    private currentState: UserState;
-    public constructor(convoMap: IConvoMap, currentState: UserState) {
+    private currentState: UserState | null;
+    private storage: IStorage;
+    private userIdAppKey: [string, string];
+    public constructor(convoMap: IConvoMap, storage: IStorage,
+        userIdAppKey: [string, string]) {
         this.convoMap = convoMap;
-        this.currentState = currentState;
+        this.storage = storage;
+        this.currentState = null;
+        this.userIdAppKey = userIdAppKey;
+    }
+}
+
+interface IStorage {
+    get(key: string): string;
+    set(key: string, value: string);
+}
+
+export class NodePersistStorage implements IStorage {
+    get(key: string): string {
+        storage.initSync();
+        let session = storage.getItemSync(key);
+        if (session == null)
+            storage.setItemSync(key, {})
+        return storage.getItemSync(key);
+    }
+    set(key: string, value: string) {
+        storage.initSync();
+        storage.setItemSync(key, value);
     }
 }
