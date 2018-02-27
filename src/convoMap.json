@@ -1,0 +1,69 @@
+{
+    "create-appointment": {
+        "Process": {
+            "action": "send-external",
+            "uri": "http://localhost:5000/test-controller/schedule-appointment",
+            "method": "POST"
+        },
+        "A": {
+            "action": "send-message",
+            "message": {
+                "text": [["some message","in parts"]],
+                "quickreply": [{},{}]},
+            "next": ["B"]
+        },
+        "B": {
+            "action": "collect-user-input",
+            "field": "name",
+            "message": {
+                "text": [["what is your name?"]],
+                "quickreply": [{},{}]
+            },
+            "next": ["C",{}]
+        },
+        "C": {
+            "action": "confirm",
+            "message": {
+                "text": [["is %(payload)s correct"]],
+                "quickreply": ["yes","no"]
+            },
+            "yes-next": ["D"],
+            "no-next": ["E"]
+        },
+        "E": {
+            "action": "send-message",
+            "message": {  
+                "text": [["Ok lets Try again"]]
+            },
+            "next": ["E"]
+        },
+        "D": {
+            "action": "collect-user-input",
+            "field": "lastName",
+            "message": {
+                "text": [["what is your last name?"]
+                ],
+                "quickreply": [{},{}]
+            },
+            "next": ["F",{}]
+        },
+        "F": {
+            "action": "confirm",
+            "message": {
+                "text": [["is %(payload)s correct"]],
+                "quickreply": ["yes","no"]
+            },
+            "yes-next": ["G"],
+            "no-next": ["D"]
+        },
+        "G": {
+            "action": "confirm",
+            "message": {
+                "text": [["are you sure? you want to create dis?"]],
+                "quickreply": ["yes","no"]
+            },
+            "yes-next": ["Process",{}],
+            "no-next": ["A"]
+        }
+    }
+}
