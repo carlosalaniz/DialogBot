@@ -1,18 +1,23 @@
 import storage from 'node-persist'
-
+import { ExceptionEnum, IOutType, UserState } from './Interfaces/Misc';
+import { ActionEnum, IState, IIntent, ICollectInputState, IConfirmationState, ISendMessageState, ISendExternalState } from './Interfaces/StateDefinitions';
+import { IConvoMap } from './Interfaces/IConversationMap';
+import { sprintf } from 'sprintf-js'
 export class Reader {
     async trySendMessageAsync(state: ISendMessageState) {
         let replaceFieldKey = state.field_key;
         let messages = state.message.text;
         let messageQuickReplies = state.message.quickreply;
         for (let i = 0, message = messages[i]; i < messages.length; i++ , message = messages[i]) {
-            console.log("Processing messages:", message);
-            for (let j = 0, messageText = message[j]; j < messages.length; j++ , messageText = message[j]) {
+            //console.log("Processing messages:", message);
+            for (let j = 0, messageText = message[j]; j < message.length; j++ , messageText = message[j]) {
+                let payload = (this.currentState) ? this.currentState.payload : null;
+                messageText = sprintf(messageText, payload);
                 console.log("Sending message:", messageText);
                 //todo: send messages
-                console.log("Sent.");
+                //console.log("Sent.");
             }
-            console.log("Processed.");
+            //console.log("Processed.");
         }
     }
 
@@ -64,9 +69,10 @@ export class Reader {
         let intentState = intent[stateKey];
         //if state is not found return undefined
         if (intentState == null)
-            return undefined;
+            throw (ExceptionEnum.StateNotFoundException)
         if (typeof intentState == 'string')
             throw (ExceptionEnum.InvalidStateFormatException)
+
         let state = intentState as IState;
         //check for valid state, return state and type
         switch (state.action) {
@@ -96,33 +102,32 @@ export class Reader {
     }
 
 
-    public async tryProcessAsync(input: string) {
-        if (this.currentState == null) return;
+    public async tryProcessAsync(input: string, currentState: UserState) {
+        if (currentState == null) return;
         //Try Get Intent
-        if (this.currentState.intent == null) {
+        if (currentState.intent == null) {
             let intent = this.tryGetIntent(input);
-            this.currentState.intent = input;
-            await this.tryProcessAsync(input);
+            currentState.intent = input;
+            await this.tryProcessAsync(input, currentState);
             return;
         }
-
-        //Try get State
-        if (this.currentState.state == null) {
+        //Try get State      
+        if (currentState.state == null) {
             let intent = this.tryGetIntent(input);
             let stateKey = intent.startAt;
             let outStateType: IOutType<string> = <any>{};
-            let state = this.tryGetState(input, intent, outStateType);
-            this.currentState.state = stateKey;
-            await this.tryProcessAsync(input);
+            let state = this.tryGetState(stateKey, intent, outStateType);
+            currentState.state = stateKey;
+            await this.tryProcessAsync(input, currentState);
             return;
         }
 
         //Process State
-        let intentKey = this.currentState.intent;
+        let intentKey = currentState.intent;
         let outStateType: IOutType<string> = <any>{};
-        let stateKey = this.currentState.state;
-        let intent = this.tryGetIntent(input);
-        let state = this.tryGetState(input, intent, outStateType);
+        let stateKey = currentState.state;
+        let intent = this.tryGetIntent(intentKey);
+        let state = this.tryGetState(stateKey, intent, outStateType);
         switch (outStateType.out) {
             case ActionEnum.collectInput:
                 state = <ICollectInputState>state;
@@ -147,16 +152,16 @@ export class Reader {
         let nextAction = (<IState>state).next;
         let wait = (<IState>state).wait;
         if (nextAction != null) {
-            this.currentState.state = nextAction;
+            currentState.state = nextAction;
             if (wait != true) {
-                await this.tryProcessAsync(input);
+                await this.tryProcessAsync(input, currentState);
                 return;
             }
         } else {
-            this.currentState.state = undefined;
-            this.currentState.intent = undefined;
-            this.currentState.payload = undefined;
-            this.currentState.waiting = undefined;
+            currentState.state = undefined;
+            currentState.intent = undefined;
+            currentState.payload = undefined;
+            currentState.waiting = undefined;
         }
         return;
     }
@@ -164,10 +169,11 @@ export class Reader {
     public async ProcessAsync(input) {
         try {
             let sessionKey = this.userIdAppKey[0] + '-' + this.userIdAppKey[1];
-            this.currentState = JSON.parse(this.storage.get(sessionKey));
-            console.log(this.currentState);
-            await this.tryProcessAsync(input);
-            this.storage.set(sessionKey, JSON.stringify(this.currentState))
+            let state = this.storage.get(sessionKey);
+            this.currentState = <UserState>JSON.parse(state);
+            console.log("Input: ", input)
+            await this.tryProcessAsync(input, this.currentState);
+            this.storage.set(sessionKey, this.currentState)
         } catch (e) {
             switch (e) {
                 case ExceptionEnum.IntentNotFoundException:
@@ -175,9 +181,12 @@ export class Reader {
                 case ExceptionEnum.InvalidStateFormatException:
                 case ExceptionEnum.UnknownActionException:
                 case ExceptionEnum.UnknownException:
-                    console.log(e);
+                case ExceptionEnum.StateNotFoundException:
+                    console.log(ExceptionEnum[e]);
+                    break;
                 default:
                     console.log("Something wierd happend D:");
+                    console.log(e);
             }
         }
     }
@@ -198,7 +207,7 @@ export class Reader {
 
 interface IStorage {
     get(key: string): string;
-    set(key: string, value: string);
+    set(key: string, value: any);
 }
 
 export class NodePersistStorage implements IStorage {
@@ -207,9 +216,10 @@ export class NodePersistStorage implements IStorage {
         let session = storage.getItemSync(key);
         if (session == null)
             storage.setItemSync(key, {})
-        return storage.getItemSync(key);
+        let obj = storage.getItemSync(key);
+        return JSON.stringify(obj);
     }
-    set(key: string, value: string) {
+    set(key: string, value: any) {
         storage.initSync();
         storage.setItemSync(key, value);
     }

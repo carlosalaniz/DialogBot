@@ -1,13 +1,76 @@
 {
     "Greetings": {
-        "StartAt": "A",
+        "startAt": "A",
         "A": {
-            "action":"",
+            "action": "send-message",
             "message": {
                 "text": [
                     [
-                        "Hello!",
-                        "How are you there!"
+                        "Hello there!",
+                        "What's your name?"
+                    ]
+                ]
+            },
+            "wait": true,
+            "next": "B"
+        },
+        "B": {
+            "action": "collect-input",
+            "field": "name",
+            "next": "C"
+        },
+        "C": {
+            "action": "send-message",
+            "message": {
+                "text": [
+                    [
+                        "iz your name? %(name)s?"
+                    ]
+                ]
+            },
+            "next": "D",
+            "wait": true
+        },
+        "D": {
+            "action": "confirm",
+            "confirm_next": "E",
+            "reject_next": "F",
+            "unknown_next": "C"
+        },
+        "E": {
+            "action": "send-message",
+            "message": {
+                "text": [
+                    [
+                        "Kiul"
+                    ]
+                ]
+            },
+            "next": "G"
+        },
+        "F": {
+            "action": "send-message",
+            "message": {
+                "text": [
+                    [
+                        "Ok Sorry, letz try again"
+                    ]
+                ]
+            },
+            "next": "A"
+        },
+        "G": {
+            "action":"send-external",
+            "uri": "http://mywebsite.com/",
+            "method": "post",
+            "next": "H"
+        },
+        "H": {
+            "action": "send-message",
+            "message": {
+                "text": [
+                    [
+                        "Great! its all done!"
                     ]
                 ]
             }
