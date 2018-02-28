@@ -1,6 +1,7 @@
-import { Reader, NodePersistStorage } from "./reader";
+import { Reader } from "./reader";
 import express from "express";
 import { IConvoMap } from "./Interfaces/IConversationMap";
+import { NodePersistStorage } from "./NodePersistStorage";
 var app = express();
 
 

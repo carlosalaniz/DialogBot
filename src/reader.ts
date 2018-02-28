@@ -1,8 +1,11 @@
-import storage from 'node-persist'
 import { ExceptionEnum, IOutType, UserState } from './Interfaces/Misc';
-import { ActionEnum, IState, IIntent, ICollectInputState, IConfirmationState, ISendMessageState, ISendExternalState } from './Interfaces/StateDefinitions';
+import { IStorage } from "./Interfaces/IStorage";
+import { ActionEnum, IState, IIntent, ICollectInputState, 
+         IConfirmationState, ISendMessageState, ISendExternalState }
+        from './Interfaces/StateDefinitions';
 import { IConvoMap } from './Interfaces/IConversationMap';
 import { sprintf } from 'sprintf-js'
+
 export class Reader {
     async trySendMessageAsync(state: ISendMessageState) {
         let replaceFieldKey = state.field_key;
@@ -101,7 +104,6 @@ export class Reader {
         }
     }
 
-
     public async tryProcessAsync(input: string, currentState: UserState) {
         if (currentState == null) return;
         //Try Get Intent
@@ -196,31 +198,10 @@ export class Reader {
     private currentState: UserState | null;
     private storage: IStorage;
     private userIdAppKey: [string, string];
-    public constructor(convoMap: IConvoMap, storage: IStorage,
-        userIdAppKey: [string, string]) {
+    public constructor(convoMap: IConvoMap, storage: IStorage, userIdAppKey: [string, string]) {
         this.convoMap = convoMap;
         this.storage = storage;
         this.currentState = null;
         this.userIdAppKey = userIdAppKey;
-    }
-}
-
-interface IStorage {
-    get(key: string): string;
-    set(key: string, value: any);
-}
-
-export class NodePersistStorage implements IStorage {
-    get(key: string): string {
-        storage.initSync();
-        let session = storage.getItemSync(key);
-        if (session == null)
-            storage.setItemSync(key, {})
-        let obj = storage.getItemSync(key);
-        return JSON.stringify(obj);
-    }
-    set(key: string, value: any) {
-        storage.initSync();
-        storage.setItemSync(key, value);
     }
 }
