@@ -1,0 +1,35 @@
+{
+    "hola": {
+        "": "greet"
+    },
+    "que": {
+        "pedo": "greet",
+        "onda": "greet",
+        "pasion": "greet"
+    },
+    "adios": {
+        "": "say_goodbye"
+    },
+    "schedule": {
+        "": "information"
+    },
+    "what": {
+        "time": {
+            "are": {
+                "you": {
+                    "open": "information"
+                }
+            },
+            "": "information"
+        }
+    },
+    "where": {
+        "are": {
+            "you": {
+                "located": "information",
+                "": "information"
+            },
+            "": "information"
+        }
+    }
+}
