@@ -1,26 +1,25 @@
-import { ExceptionEnum, IOutType, UserState } from './Interfaces/Misc';
+import { IConvoMap } from "./Interfaces/IConversationMap";
+import { UserState, IOutType, ExceptionEnum } from "./Interfaces/Misc";
 import { IStorage } from "./Interfaces/IStorage";
-import { ActionEnum, IState, IIntent, ICollectInputState, 
-         IConfirmationState, ISendMessageState, ISendExternalState }
-        from './Interfaces/StateDefinitions';
-import { IConvoMap } from './Interfaces/IConversationMap';
-import { sprintf } from 'sprintf-js'
-
+import { IMessageHandler } from "./Interfaces/IMessageHandler";
+import { IExceptionHandler } from "./Interfaces/IExceptionHandler";
+import { IIntent, ICollectInputState, ISendMessageState, ISendExternalState, IConfirmationState, ActionEnum, IState } from "./Interfaces/StateDefinitions";
+import { searchForTokens } from "./utilities/tokenSearch";
+import * as Global from "./global";
+import { sprintf } from "sprintf-js"
 export class Reader {
     async trySendMessageAsync(state: ISendMessageState) {
         let replaceFieldKey = state.field_key;
         let messages = state.message.text;
+
         let messageQuickReplies = state.message.quickreply;
-        for (let i = 0, message = messages[i]; i < messages.length; i++ , message = messages[i]) {
-            //console.log("Processing messages:", message);
-            for (let j = 0, messageText = message[j]; j < message.length; j++ , messageText = message[j]) {
-                let payload = (this.currentState) ? this.currentState.payload : null;
-                messageText = sprintf(messageText, payload);
-                console.log("Sending message:", messageText);
-                //todo: send messages
-                //console.log("Sent.");
-            }
-            //console.log("Processed.");
+        let randomMessage =
+            (messages.length > 1) ? messages[Math.floor(Math.random() * messages.length)] : messages[0];
+        for (let i = 0, messageText = randomMessage[i]; i < randomMessage.length;
+            i++ , messageText = randomMessage[i]) {
+            let payload = (this.currentState) ? this.currentState.payload : null;
+            messageText = sprintf(messageText, payload);
+            this.messageHandler.trySendMessageAsync(messageText)
         }
     }
 
@@ -29,10 +28,7 @@ export class Reader {
         let data = this.currentState.payload;
         let uri = state.uri;
         let method = state.method;
-        console.log("Data to be sent ", data);
-        console.log("Seding Data to ", uri, " through ", method);
-        //todo: send data to external service
-        console.log("Sent.")
+        await this.messageHandler.trySendHttpDataAsync(data, method, uri);
     }
 
     Confirm(state: IConfirmationState, input: string) {
@@ -95,10 +91,11 @@ export class Reader {
      * @param intentKey 
      * @throws IntentNotFoundException
      */
-    tryGetIntent(intentKey: string): IIntent {
-        let intent = this.convoMap[intentKey];
+    tryGetIntent(input: string): IIntent {
+        let intentKey = searchForTokens(input);
+        let intent = (intentKey != null) ? this.convoMap[intentKey] : null;
         if (intent == null) {
-            throw (ExceptionEnum.IntentNotFoundException)
+            throw (ExceptionEnum.IntentNotFoundException);
         } else {
             return intent;
         }
@@ -173,23 +170,10 @@ export class Reader {
             let sessionKey = this.userIdAppKey[0] + '-' + this.userIdAppKey[1];
             let state = this.storage.get(sessionKey);
             this.currentState = <UserState>JSON.parse(state);
-            console.log("Input: ", input)
             await this.tryProcessAsync(input, this.currentState);
             this.storage.set(sessionKey, this.currentState)
         } catch (e) {
-            switch (e) {
-                case ExceptionEnum.IntentNotFoundException:
-                case ExceptionEnum.InvalidActionNameException:
-                case ExceptionEnum.InvalidStateFormatException:
-                case ExceptionEnum.UnknownActionException:
-                case ExceptionEnum.UnknownException:
-                case ExceptionEnum.StateNotFoundException:
-                    console.log(ExceptionEnum[e]);
-                    break;
-                default:
-                    console.log("Something wierd happend D:");
-                    console.log(e);
-            }
+            this.exceptionHandler.handle(e);
         }
     }
 
@@ -198,10 +182,21 @@ export class Reader {
     private currentState: UserState | null;
     private storage: IStorage;
     private userIdAppKey: [string, string];
-    public constructor(convoMap: IConvoMap, storage: IStorage, userIdAppKey: [string, string]) {
-        this.convoMap = convoMap;
-        this.storage = storage;
+    private messageHandler: IMessageHandler;
+    private exceptionHandler: IExceptionHandler;
+
+    public constructor(
+        userIdAppKey: [string, string],
+        convoMap?: IConvoMap,
+        storage?: IStorage,
+        messageHandler?: IMessageHandler,
+        exceptionHandler?: IExceptionHandler
+    ) {
+        this.convoMap = (convoMap) ? convoMap : Global.conversationMap;
+        this.storage = (storage) ? storage : Global.storage;
         this.currentState = null;
         this.userIdAppKey = userIdAppKey;
+        this.messageHandler = (messageHandler) ? messageHandler : Global.MessageHandler;
+        this.exceptionHandler = (exceptionHandler) ? exceptionHandler : Global.ExceptionHandler;
     }
 }
