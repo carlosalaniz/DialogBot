@@ -3,10 +3,11 @@ import { UserState, IOutType, ExceptionEnum } from "./Interfaces/Misc";
 import { IStorage } from "./Interfaces/IStorage";
 import { IMessageHandler } from "./Interfaces/IMessageHandler";
 import { IExceptionHandler } from "./Interfaces/IExceptionHandler";
-import { IIntent, ICollectInputState, ISendMessageState, ISendExternalState, IConfirmationState, ActionEnum, IState } from "./Interfaces/StateDefinitions";
+import { IIntent, ICollectInputState, ISendMessageState, ISendExternalState, IConfirmationState, ActionEnum, IState, FixedStateNamesEnum } from "./Interfaces/StateDefinitions";
 import { searchForTokens } from "./utilities/tokenSearch";
 import * as Global from "./global";
 import { sprintf } from "sprintf-js"
+import { stat } from "fs";
 export class Reader {
     async trySendMessageAsync(state: ISendMessageState) {
         let replaceFieldKey = state.field_key;
@@ -19,7 +20,11 @@ export class Reader {
             i++ , messageText = randomMessage[i]) {
             let payload = (this.currentState) ? this.currentState.payload : null;
             messageText = sprintf(messageText, payload);
-            this.messageHandler.trySendMessageAsync(messageText)
+            if (i == randomMessage.length - 1 && messageQuickReplies != null) {
+                this.messageHandler.trySendMessageAsync(messageText, messageQuickReplies);
+                continue;
+            }
+            this.messageHandler.trySendMessageAsync(messageText);
         }
     }
 
@@ -127,22 +132,21 @@ export class Reader {
         let stateKey = currentState.state;
         let intent = this.tryGetIntent(intentKey);
         let state = this.tryGetState(stateKey, intent, outStateType);
+        let stateTimeout: undefined | number;
         switch (outStateType.out) {
             case ActionEnum.collectInput:
-                state = <ICollectInputState>state;
-                this.CollectInput(state, input);
+                stateTimeout = (<IState>state).timeout;
+                this.CollectInput(<ICollectInputState>state, input);
                 break;
             case ActionEnum.confirm:
-                state = <IConfirmationState>state;
-                this.Confirm(state, input);
+                stateTimeout = (<IState>state).timeout;
+                this.Confirm(<IConfirmationState>state, input);
                 break;
             case ActionEnum.sendExternal:
-                state = <ISendExternalState>state;
-                await this.trySendExternalAsync(state);
+                await this.trySendExternalAsync(<ISendExternalState>state);
                 break;
             case ActionEnum.sendMessage:
-                state = <ISendMessageState>state;
-                this.trySendMessageAsync(state);
+                this.trySendMessageAsync(<ISendMessageState>state);
                 break;
             default:
                 throw (ExceptionEnum.UnknownActionException);
@@ -151,18 +155,50 @@ export class Reader {
         let nextAction = (<IState>state).next;
         let wait = (<IState>state).wait;
         if (nextAction != null) {
-            currentState.state = nextAction;
+            if (this.isExpired(currentState)) {
+                currentState.state = FixedStateNamesEnum.timeout;
+            } else {
+                currentState.state = nextAction;
+                this.updateStateExpiration(currentState, stateTimeout)
+            }
             if (wait != true) {
                 await this.tryProcessAsync(input, currentState);
                 return;
             }
         } else {
-            currentState.state = undefined;
-            currentState.intent = undefined;
-            currentState.payload = undefined;
-            currentState.waiting = undefined;
+            this.resetState(currentState);
         }
         return;
+    }
+
+    isExpired(currentState: UserState) {
+        if (!currentState.expires_at) return false;
+        if (!Number.isInteger(currentState.expires_at)) {
+            throw ExceptionEnum.UnknownException;
+        }
+        return currentState.expires_at <= +new Date();
+    }
+
+    updateStateExpiration(currentState: UserState, stateTimeout: number | undefined) {
+        let timeout: number;
+        if (stateTimeout) {
+            if (!Number.isInteger(stateTimeout)) {
+                throw ExceptionEnum.TimeoutValueIsNotANumberException;
+            }
+            timeout = stateTimeout;
+        } else {
+            timeout = Global.timeout;
+        }
+        let time = new Date();
+        time.setSeconds(time.getSeconds() + timeout);
+        currentState.expires_at = +time;
+    }
+
+    resetState(currentState: UserState) {
+        currentState.expires_at = undefined;
+        currentState.state = undefined;
+        currentState.intent = undefined;
+        currentState.payload = undefined;
     }
 
     public async ProcessAsync(input) {

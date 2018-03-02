@@ -1,6 +1,10 @@
+import { timeout } from "q";
 
 export enum ReservedStateNamesEnum {
     startAt = "startAt"
+}
+export enum FixedStateNamesEnum {
+    timeout = "timeout"
 }
 
 export enum ActionEnum {
@@ -35,6 +39,7 @@ export interface IState {
     action: ActionEnum,
     next?: string,
     wait?: boolean
+    timeout?: number,
 }
 
 export interface IMessage {
@@ -44,6 +49,7 @@ export interface IMessage {
 
 export interface IIntent {
     startAt: string,
+    timeout?: string,
     [StateKey: string]:
     ISendMessageState |
     IConfirmationState |

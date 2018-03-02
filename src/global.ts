@@ -6,19 +6,21 @@ import { IConvoMap } from "./Interfaces/IConversationMap";
 import { IStorage } from "./Interfaces/IStorage";
 import { NodePersistStorage } from "./utilities/storage";
 
-export var MessageHandler: IMessageHandler
+export const timeout = 10;
+
+export const MessageHandler: IMessageHandler
     = new ConsoleMessageHandler();
 
-export var storage: IStorage
+export const storage: IStorage
     = new NodePersistStorage();
 
-export var ExceptionHandler: IExceptionHandler
+export const ExceptionHandler: IExceptionHandler
     = new ConsoleExceptionHandler();
 
-export var tokenMap: IActionMap
+export const tokenMap: IActionMap
     = require("../testfiles/actionMap.json");
 
-export var conversationMap: IConvoMap
+export const conversationMap: IConvoMap
     = require("../testfiles/testConvo.json");
 
 

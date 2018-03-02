@@ -9,12 +9,14 @@ export enum ExceptionEnum {
     InvalidActionNameException,
     UnknownActionException,
     InvalidStateFormatException,
-    UnknownException
+    UnknownException,
+    TimeoutValueIsNotANumberException,
+
 }
 
 export interface UserState {
     intent?: string,
     state?: string,
     payload?: any,
-    waiting?: boolean
+    expires_at?: any
 }

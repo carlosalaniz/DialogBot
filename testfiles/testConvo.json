@@ -74,6 +74,16 @@
                     ]
                 ]
             }
+        },
+        "timeout":{
+            "action": "send-message",
+            "message": {
+                "text": [
+                    [
+                        "You've been away for a long time, sorry."
+                    ]
+                ]
+            }
         }
     },
     "information": {
