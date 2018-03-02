@@ -3,15 +3,24 @@ export interface IOutType<T> {
     out: T
 }
 
+export class DialogException {
+    public value: any;
+    public exception: ExceptionEnum;
+    public constructor(exception: ExceptionEnum, value: any) {
+        this.exception = exception;
+        this.value = value;
+    }
+}
+
 export enum ExceptionEnum {
     IntentNotFoundException,
     StateNotFoundException,
     InvalidActionNameException,
-    UnknownActionException,
+    UnknownActionTypeException,
     InvalidStateFormatException,
     UnknownException,
     TimeoutValueIsNotANumberException,
-
+    StateExpirationCurruptedException
 }
 
 export interface UserState {

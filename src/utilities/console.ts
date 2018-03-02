@@ -1,6 +1,6 @@
 import { IMessageHandler } from "../Interfaces/IMessageHandler";
 import { IExceptionHandler } from "../Interfaces/IExceptionHandler";
-import { ExceptionEnum } from "../Interfaces/Misc";
+import { ExceptionEnum, DialogException } from "../Interfaces/Misc";
 
 export class ConsoleMessageHandler implements IMessageHandler {
     async trySendHttpDataAsync(data: any, method: string, uri: string, configurations?: any) {
@@ -17,15 +17,17 @@ export class ConsoleMessageHandler implements IMessageHandler {
     }
 }
 export class ConsoleExceptionHandler implements IExceptionHandler {
-    handle(exception: any): void {
-        switch (exception) {
+    handle(exception: DialogException): void {
+        switch (exception.exception) {
             case ExceptionEnum.IntentNotFoundException:
             case ExceptionEnum.InvalidActionNameException:
             case ExceptionEnum.InvalidStateFormatException:
-            case ExceptionEnum.UnknownActionException:
+            case ExceptionEnum.UnknownActionTypeException:
             case ExceptionEnum.UnknownException:
             case ExceptionEnum.StateNotFoundException:
-                console.log(ExceptionEnum[exception]);
+            case ExceptionEnum.TimeoutValueIsNotANumberException:
+            case ExceptionEnum.StateExpirationCurruptedException:
+                console.log(ExceptionEnum[exception.exception], exception.value);
                 break;
             default:
                 console.log("Something wierd happend D:");

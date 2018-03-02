@@ -6,7 +6,7 @@ import { IConvoMap } from "./Interfaces/IConversationMap";
 import { IStorage } from "./Interfaces/IStorage";
 import { NodePersistStorage } from "./utilities/storage";
 
-export const timeout = 10;
+export const timeout = 5;
 
 export const MessageHandler: IMessageHandler
     = new ConsoleMessageHandler();
