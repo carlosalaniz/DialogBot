@@ -230,8 +230,8 @@ export class Reader {
                     currentState.state = FixedStateNamesEnum.timeout;
                 } else {
                     currentState.state = nextAction;
-                    this.updateStateExpiration(currentState, stateTimeout)
                 }
+                this.updateStateExpiration(currentState, stateTimeout)
                 if (wait != true) {
                     await this.tryProcessAsync(input, currentState);
                     return;
